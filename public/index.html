@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Socket</title>
+<script src="./javascripts/jquery/3.1.1/jquery.js"></script>
+<script src="./javascripts/jquery-ui/jquery-ui.min.js"></script>
+<script src="./javascripts/d3/d3.js" charset="utf-8"></script>
+<script src="./javascripts/socket.io/socket.io.js"></script>
+<script src="./javascripts/epoch/dist/js/epoch.min.js"></script>
+<script src="./javascripts/data.js"></script>
+<script src="./javascripts/sound.js"></script>
+<link rel="stylesheet" type="text/css" href="./javascripts/epoch/dist/css/epoch.min.css">
+<link rel="stylesheet" type="text/css" href="./javascripts/jquery-ui/jquery-ui.min.css">
+</head>
+<body>
+<h3 id="line" style="margin-left: 10px">Temperature Line</h3>
+<div id="timeline" class="epoch"></div>
+<div id="show_dialog" class="ui-flont"></div>
+<script>
+const UPPER_LIMIT_THRESHOLD = 39
+const LOWER_LIMIT_THRESHOLD = 35
+var socketData1 = {Temperature:0,ID:99};
+var socketData2 = {Temperature:0,ID:99};
+var socketData3 = {Temperature:0,ID:99};
+var socketDataset = [socketData1,socketData2,socketData3];
+var isfirst = true;
+var alertflag = false;
+var showingflag = false;
+$("#timeline").css({"z-index":0});
+$("#timeline").width(1000);
+
+
+function ShowJQueryAlertDialog() {
+    var strTitle = "警告ダイアログ";
+    var strComment = "体温が異常です"
+    $( "#show_dialog" ).html( strComment );
+     $( "#show_dialog" ).dialog({
+        modal: true,
+        title: strTitle,
+        buttons: {
+            "OK": function() {
+                $( this ).dialog( "close" );
+                console.log('close dialog');
+                showingflag = false;
+            }
+        }
+    });
+}
+
+//Line Chart Run
+$(function() {
+idx = ((new Date()).getTime()/1000)|0;
+    var data = [
+        {label: 'Tanaka' , values: [{Time: idx, Temperature: 36}]},
+        {label: 'Yamada' , values: [{Time: idx, Temperature: 36}]},
+        {label: 'Suzuki' , values: [{Time: idx, Temperature: 36}]}
+        ];
+    var dataProperty = 
+        {type: 'time.line',
+         ticks: { time: 10, right: 5, left: 5 },
+         margins: { top: 10, right: 50, bottom: 30, left: 50 },
+         height: 400,
+         data: data,
+         axes: ['left', 'bottom', 'right']
+    };
+
+    var charts = [
+        $('#timeline').epoch(dataProperty),
+    ];
+
+
+    function updateCharts() {
+        idx = ((new Date()).getTime()/1000)|0;
+        nextData = [
+           {time: idx, y: socketDataset[0]["Temperature"]},
+           {time: idx, y: socketDataset[1]["Temperature"]},
+           {time: idx, y: socketDataset[2]["Temperature"]}
+        ];
+        charts[0].push(nextData);
+    }
+    setInterval(updateCharts, 1000);
+});
+
+// Socket Data Receive
+$(function() {
+    var url = "127.0.0.1:3000";
+    var socket = io.connect(url);
+    socket.on("paramData", function (d) {
+        socketDataset[d.id] = {Temperature:d.temperature,ID:d.id};
+        if(d.temperature > UPPER_LIMIT_THRESHOLD){
+            alertflag = true;
+        }
+        if(d.temperature <= UPPER_LIMIT_THRESHOLD && d.temperature >= LOWER_LIMIT_THRESHOLD){
+            alertflag = false;
+        }
+        if(alertflag && !showingflag){
+            ShowJQueryAlertDialog();
+            showingflag = true
+        }
+        if(alertflag){
+            sound.play()
+        }
+    });
+});
+
+</script>
+</body>
+</html>
